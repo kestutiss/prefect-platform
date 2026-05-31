@@ -1,0 +1,69 @@
+version: "3.9"
+
+# Stable network name so flow-run containers can resolve 'prefect-server'
+networks:
+  prefect-network:
+    name: prefect-network
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-prefect}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prefect}
+      POSTGRES_DB: ${POSTGRES_DB:-prefect}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - prefect-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prefect}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    command: prefect server start --host 0.0.0.0
+    environment:
+      PREFECT_SERVER_DATABASE_CONNECTION_URL: >-
+        postgresql+asyncpg://${POSTGRES_USER:-prefect}:${POSTGRES_PASSWORD:-prefect}@postgres:5432/${POSTGRES_DB:-prefect}
+      PREFECT_UI_ENABLED: "true"
+      PREFECT_CLI_PROMPT: "false"
+    ports:
+      - "${PREFECT_UI_PORT:-4200}:4200"
+    networks:
+      - prefect-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  prefect-worker:
+    image: prefect-platform:local   # also used as the flow-run container image
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_CLI_PROMPT: "false"
+      WORK_POOL_NAME: ${WORK_POOL_NAME:-local-pool}
+    volumes:
+      # Docker socket — worker calls host Docker daemon to spawn flow containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - prefect-network
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    restart: on-failure:5
+
+volumes:
+  postgres_data:

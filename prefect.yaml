@@ -1,0 +1,53 @@
+name: prefect-platform
+prefect-version: "3"
+
+# No build or push steps — code is mounted as a Docker volume
+build: null
+push: null
+
+# Tell the worker where to find the code (already mounted at /app)
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /app
+
+deployments:
+  - name: hello-world-default
+    version: "1.0"
+    tags:
+      - example
+    description: "Simple hello world flow demonstrating Prefect 3.x basics"
+    entrypoint: flows/examples/hello_world.py:hello_world_flow
+    parameters: {}
+    work_pool:
+      name: local-pool
+      work_queue_name: default
+      job_variables:
+        image: prefect-platform:local
+        networks:
+          - prefect-network
+        env:
+          PREFECT_API_URL: http://prefect-server:4200/api
+          PYTHONPATH: /app
+        auto_remove: true
+    schedules: []
+
+  - name: etl-example-default
+    version: "1.0"
+    tags:
+      - example
+      - etl
+    description: "Sample ETL pipeline: extract → transform → load"
+    entrypoint: flows/examples/etl_example.py:etl_example_flow
+    parameters: {}
+    work_pool:
+      name: local-pool
+      work_queue_name: default
+      job_variables:
+        image: prefect-platform:local
+        networks:
+          - prefect-network
+        env:
+          PREFECT_API_URL: http://prefect-server:4200/api
+          PYTHONPATH: /app
+        auto_remove: true
+    schedules: []

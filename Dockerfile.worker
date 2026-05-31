@@ -1,0 +1,17 @@
+FROM prefecthq/prefect:3-latest
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Bake flow code into image — deps are cached separately so this layer is fast
+COPY flows/ ./flows/
+COPY tasks/ ./tasks/
+COPY prefect.yaml .
+
+COPY entrypoint.sh /entrypoint.sh
+# Normalize line endings (safe on Linux, required when built on Windows)
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
