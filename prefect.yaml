@@ -23,6 +23,7 @@ deployments:
       work_queue_name: default
       job_variables:
         image: prefect-platform:local
+        name: "hello-world"
         networks:
           - prefect-network
         env:
@@ -44,6 +45,7 @@ deployments:
       work_queue_name: default
       job_variables:
         image: prefect-platform:local
+        name: "etl-example"
         networks:
           - prefect-network
         env:

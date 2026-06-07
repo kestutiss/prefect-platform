@@ -89,11 +89,8 @@ def load_data(df: pd.DataFrame, output_path: str) -> int:
     timeout_seconds=600,
     log_prints=True,
 )
-def etl_example_flow(input_: ETLFlowInput | None = None) -> int:
+def etl_example_flow(input_: ETLFlowInput = ETLFlowInput()) -> int:
     """Run extract → transform → load pipeline and return record count."""
-    if input_ is None:
-        input_ = ETLFlowInput()
-
     print(f"Starting ETL: source={input_.source!r} → {input_.output_path!r}")
 
     try:

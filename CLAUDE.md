@@ -38,17 +38,18 @@ Key facts:
 ## Required @flow decorator fields
 
 ```python
+def _run_name() -> str:
+    return f"my-flow-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
 @flow(
     name="<snake-case>",
-    flow_run_name=_run_name,     # MUST be a zero-arg callable — Prefect calls it with no args
+    flow_run_name=_run_name,     # zero-arg callable returning timestamp-based name
     retries=2,
     retry_delay_seconds=10,
     timeout_seconds=<n>,         # REQUIRED — prevents runaway flow-run containers
     log_prints=True,
 )
-def my_flow(input_: MyFlowInput | None = None) -> ResultType:
-    if input_ is None:
-        input_ = MyFlowInput()
+def my_flow(input_: MyFlowInput = MyFlowInput()) -> ResultType:
     try:
         ...
     except Exception:
@@ -56,11 +57,9 @@ def my_flow(input_: MyFlowInput | None = None) -> ResultType:
         raise
 ```
 
-`_run_name` pattern:
-```python
-def _run_name() -> str:
-    return f"my-flow-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-```
+`flow_run_name` rules:
+- Must be a **zero-arg callable** — Prefect calls it with no arguments. Adding any parameter raises `TypeError` at runtime.
+- Input model default must be `= MyFlowInput()` (not `= None`) — no None guard needed inside the flow body
 
 ## Required @task fields
 
@@ -83,6 +82,7 @@ Every new deployment must include the full `job_variables` block for the Docker 
       work_queue_name: default
       job_variables:
         image: prefect-platform:local
+        name: "<flow-name>"          # static string — DO NOT use {{ flow.name }}, not supported
         networks:
           - prefect-network
         env:
@@ -92,13 +92,18 @@ Every new deployment must include the full `job_variables` block for the Docker 
     schedules: []
 ```
 
+Docker container naming notes:
+- `name` must be a **static string** per deployment — only `flow_run.*` fields are available as templates at runtime, and none contain a human-readable flow name (`flow_id` is a UUID)
+- `{{ flow.name }}` looks valid but is NOT in the runtime template context — Prefect warns and silently ignores it, leaving the container with a random Docker-generated name
+- `auto_remove: true` ensures the container is gone before the next run, so the static name never conflicts
+
 ## Dev commands
 
 ```
 make up              # start all services (first time builds image automatically)
-make build           # rebuild image after code/requirements changes, restart worker
+make build           # rebuild image after ANY change to code, prefect.yaml, or requirements
 make logs-worker     # watch worker logs
-make deploy          # redeploy from prefect.yaml without rebuilding
+make deploy          # re-register deployments WITHOUT rebuilding (only useful if image already has latest prefect.yaml)
 make test            # run pytest locally (requires venv — see make setup)
 make setup           # create .venv and install requirements (run once for local tests)
 make shell           # bash inside worker container

@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Stable network name so flow-run containers can resolve 'prefect-server'
 networks:
   prefect-network:

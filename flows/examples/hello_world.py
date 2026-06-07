@@ -51,11 +51,8 @@ def collect_greetings(greetings: list[str]) -> str:
     timeout_seconds=300,
     log_prints=True,
 )
-def hello_world_flow(input_: HelloFlowInput | None = None) -> str:
+def hello_world_flow(input_: HelloFlowInput = HelloFlowInput()) -> str:
     """Greet each name in the input list in parallel, then collect results."""
-    if input_ is None:
-        input_ = HelloFlowInput()
-
     try:
         # .map() runs one task instance per name concurrently
         futures = greet.map(input_.names, unmapped(input_.greeting))

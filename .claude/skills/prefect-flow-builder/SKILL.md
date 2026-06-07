@@ -62,22 +62,20 @@ class MyFlowInput(BaseModel):
 
 
 def _run_name() -> str:
-    # ZERO-ARG — Prefect calls flow_run_name callables with no arguments.
-    # Do NOT add parameters here; it will raise TypeError at runtime.
+    # MUST be zero-arg — Prefect calls flow_run_name callables with NO arguments.
+    # Adding any parameter raises TypeError at runtime.
     return f"my-flow-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
 
 @flow(
     name="my-flow",
-    flow_run_name=_run_name,        # zero-arg callable, see above
+    flow_run_name=_run_name,        # zero-arg callable
     retries=2,
     retry_delay_seconds=10,
     timeout_seconds=300,            # REQUIRED — prevents runaway containers
     log_prints=True,
 )
-def my_flow(input_: MyFlowInput | None = None) -> ResultType:
-    if input_ is None:
-        input_ = MyFlowInput()
+def my_flow(input_: MyFlowInput = MyFlowInput()) -> ResultType:
     try:
         raw   = extract_something(input_)
         clean = transform_something(raw)
@@ -92,8 +90,7 @@ Hard requirements for every new flow:
 - **Exactly one Pydantic input model** defined in the same file. No bare positional
   primitives on the flow function.
 - `flow_run_name` must be a **zero-arg callable** (`def _run_name() -> str`).
-  Prefect does not inject flow parameters into this callable — adding a required
-  parameter will crash every run with `TypeError`.
+  Use `input_: MyFlowInput = MyFlowInput()` as the default (never `= None`).
 - `retries`, `retry_delay_seconds`, and `timeout_seconds` — all three, always.
 - Top-level `try/except` that re-raises — never swallow.
 
@@ -153,6 +150,7 @@ Copy this block and fill in the three fields marked with `<>`:
       work_queue_name: default
       job_variables:
         image: prefect-platform:local      # image with flow code baked in
+        name: "<flow-name>"                # static string — see note below
         networks:
           - prefect-network                # lets container reach prefect-server
         env:
@@ -166,8 +164,12 @@ Notes:
 - `retries` and `timeout_seconds` live on the `@flow` decorator, not the YAML.
 - `job_variables` is **required** for the Docker work pool — omitting it means the
   flow-run container cannot reach the Prefect server and will fail immediately.
-- After editing `prefect.yaml`, run `make build` (rebuilds image + worker restarts
-  and auto-deploys) or `make deploy` if the image is already up to date.
+- `name` must be a **static string** — `{{ flow.name }}` looks valid but is NOT in
+  Prefect's runtime template context (only `flow_run.*` fields are available, and
+  none contain a human-readable flow name). Prefect warns silently and falls back to
+  a random Docker name if an unsupported placeholder is used.
+- `prefect.yaml` is baked into the image. After editing it, **always run `make build`**
+  — `make deploy` runs inside the container and reads the old baked-in file.
 
 ---
 
