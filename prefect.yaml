@@ -53,3 +53,25 @@ deployments:
           PYTHONPATH: /app
         auto_remove: true
     schedules: []
+
+  - name: deactivate-expired-coupon-default
+    version: "1.0"
+    tags:
+      - mongodb
+    description: "Find the most expired active coupon in MongoDB and deactivate it"
+    entrypoint: flows/mongodb/deactivate_expired_coupon.py:deactivate_expired_coupon_flow
+    parameters: {}
+    work_pool:
+      name: local-pool
+      work_queue_name: default
+      job_variables:
+        image: prefect-platform:local
+        name: "deactivate-expired-coupon"
+        networks:
+          - prefect-network
+        env:
+          PREFECT_API_URL: http://prefect-server:4200/api
+          PYTHONPATH: /app
+          MONGO_URI: mongodb://mongo:27017   # service name on prefect-network
+        auto_remove: true
+    schedules: []

@@ -125,7 +125,8 @@ def my_flow(input_: MyFlowInput = MyFlowInput()) -> str:
 
 ## Running tests
 
-Tests run without Docker — `conftest.py` spins up an in-process Prefect environment.
+Tests run locally — `conftest.py` spins up an in-process Prefect environment.
+Tests that use `testcontainers` (e.g. MongoDB flows) also require **Docker Desktop running**.
 
 ```bash
 # One-time: create venv and install deps
@@ -147,8 +148,11 @@ python -m venv .venv
 ```
 prefect/
 ├── flows/                # @flow definitions, grouped by domain
-│   └── examples/         # example flows to mirror
+│   ├── examples/         # example flows to mirror
+│   └── mongodb/          # MongoDB flows
 ├── tasks/                # shared @task modules (reuse across flows)
+├── migrations/           # versioned DB schema migrations (run in tests)
+│   └── mongodb/          # per-backend migration scripts + MigrationRunner
 ├── tests/                # pytest tests — no live server needed
 ├── prefect.yaml          # all deployment definitions live here
 ├── docker-compose.yml    # postgres + prefect-server + prefect-worker
@@ -254,3 +258,52 @@ git push -u origin main
       └─ exits + auto-removed
 
   The worker never runs the flow itself — it only schedules the container. The container is the actual executor.
+
+### Prompt template for asking Claude to add a flow
+
+Fill in all fields before sending. Gaps lead to wrong assumptions and wasted iterations.
+
+```
+Build flow `<flow-function-name>` in `flows/<domain>/<filename>.py`:
+
+**Goal**: <one sentence — what this flow does and why>
+
+**Source**:
+- Type: <MongoDB | PostgreSQL | REST API | CSV | ...>
+- Connection: <env var name holding the URI/DSN, or default for dev>
+- Database/collection or table: <exact names>
+- Query / filter: <what records to select; include sort key and limit>
+- Expected volume per run: <documents/rows — drives chunking decision>
+
+**Transform**:
+- <What to compute/change — field renames, status transitions, aggregations>
+- Pure transform (no I/O)? <yes | no — determines whether retries are needed on the task>
+
+**Destination + write semantics**:
+- Target: <same collection | different collection | file | stdout>
+- Write mode: <update | insert | upsert | overwrite | append>
+- Idempotency key: <field(s) that make re-runs safe — REQUIRED>
+- Fields to update: <explicit list of what changes>
+
+**Schedule**: <"manual only" | "every N minutes" | "cron: 0 2 * * * UTC">
+
+**Pydantic input model fields**:
+  <field_name>: <type> = <default>    # <what it controls>
+  ...
+
+**New packages** (not in requirements.txt): <list, or "none">
+
+**Schema migrations needed**:
+- Collection/table already exists? <yes | no>
+- New fields or indexes to add? <describe, or "none">
+- Migration file to create: <e.g. 002_add_deactivated_at_index.py, or "none">
+
+**Testing approach**:
+- Use real DB via testcontainers? <yes | no — yes when logic depends on DB query/sort behaviour>
+- Happy path: <describe the nominal case>
+- Edge cases to test: <list — at minimum: empty result, already-processed record>
+
+**Closest existing flow to mirror**: <e.g. flows/mongodb/deactivate_expired_coupon.py>
+
+**Notes**: <anything unusual — concurrency concerns, external API rate limits, large payload handling, etc.>
+```

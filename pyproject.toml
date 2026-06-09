@@ -2,6 +2,9 @@
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-v"
+filterwarnings = [
+    "ignore:The wait_for_logs function with string or callable predicates is deprecated:DeprecationWarning:testcontainers",
+]
 
 [tool.ruff]
 line-length = 100
