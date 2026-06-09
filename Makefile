@@ -1,11 +1,19 @@
-.PHONY: up down build logs logs-worker deploy setup test clean restart-worker shell \
+.PHONY: help up down build logs logs-worker deploy setup test clean restart-worker shell \
         mongo-up mongo-down mongo-logs mongo-shell migrate seed
+
+.DEFAULT_GOAL := help
 
 ifeq ($(OS),Windows_NT)
 VENV_PYTHON := .venv/Scripts/python.exe
 else
 VENV_PYTHON := .venv/bin/python
 endif
+
+##@ Core
+
+## Show this help message (default when no target is given)
+help:
+	@python scripts/help.py
 
 ## Start all services (postgres + server + worker)
 up:
@@ -37,9 +45,9 @@ setup:
 	$(VENV_PYTHON) -m pip install -U pip
 	$(VENV_PYTHON) -m pip install -r requirements.txt
 
-## Run tests locally (no Docker needed; requires `make setup` first)
+## Run tests locally; pass TEST=<path|node-id|pytest args> to filter (default: all)
 test:
-	$(VENV_PYTHON) -m pytest tests/ -v
+	$(VENV_PYTHON) -m pytest $(if $(TEST),$(TEST),tests/) -v
 
 ## Open a shell inside the worker container
 shell:
@@ -53,7 +61,7 @@ restart-worker:
 clean:
 	docker compose down -v
 
-# ── MongoDB dev environment ────────────────────────────────────────────────────
+##@ MongoDB dev environment
 
 ## Start MongoDB (joins prefect-network; flow containers reach it at mongo:27017)
 mongo-up:

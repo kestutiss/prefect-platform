@@ -75,3 +75,25 @@ deployments:
           MONGO_URI: mongodb://mongo:27017   # service name on prefect-network
         auto_remove: true
     schedules: []
+
+  - name: create-coupon-default
+    version: "1.0"
+    tags:
+      - mongodb
+    description: "Insert or upsert a single ACTIVE coupon into account.coupons"
+    entrypoint: flows/mongodb/create_coupon.py:create_coupon_flow
+    parameters: {}
+    work_pool:
+      name: local-pool
+      work_queue_name: default
+      job_variables:
+        image: prefect-platform:local
+        name: "create-coupon"
+        networks:
+          - prefect-network
+        env:
+          PREFECT_API_URL: http://prefect-server:4200/api
+          PYTHONPATH: /app
+          MONGO_URI: mongodb://mongo:27017
+        auto_remove: true
+    schedules: []

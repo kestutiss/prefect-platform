@@ -13,7 +13,7 @@ from flows.mongodb.deactivate_expired_coupon import (
 )
 
 
-def _coupon(coupon_id: str, days_offset: int, status: str = "ACTIVE") -> dict:
+def _coupon(coupon_id: str, days_offset: int, status: str = "INACTIVE") -> dict:
     """Build a coupon document. Negative days_offset puts validTo in the past."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     return {
@@ -56,14 +56,14 @@ class TestDeactivateExpiredCouponFlow:
         result = deactivate_expired_coupon_flow(input_=_input(mongodb_container))
         assert result is None
 
-    def test_active_coupon_not_touched(self, coupons_collection, mongodb_container):
+    def test_inactive_coupon_not_touched(self, coupons_collection, mongodb_container):
         coupons_collection.insert_many([
-            _coupon("C006", 30),    # active — must not be touched
+            _coupon("C006", 30),    # inactive — must not be touched
             _coupon("C007", -3),    # expired — will be deactivated
         ])
         deactivate_expired_coupon_flow(input_=_input(mongodb_container))
         doc = coupons_collection.find_one({"couponId": "C006"})
-        assert doc["status"] == "ACTIVE"
+        assert doc["status"] == "INACTIVE"
 
     def test_already_deactivated_skipped(self, coupons_collection, mongodb_container):
         coupons_collection.insert_one(_coupon("C008", -5, status="DEACTIVATED"))
@@ -89,7 +89,7 @@ class TestDeactivateExpiredCouponFlow:
         result = deactivate_expired_coupon_flow(input_=input_)
         assert result == "C010"
         doc = coupons_collection.find_one({"couponId": "C010"})
-        assert doc["status"] == "ACTIVE"
+        assert doc["status"] == "INACTIVE"
 
     def test_empty_collection_returns_none(self, coupons_collection, mongodb_container):
         result = deactivate_expired_coupon_flow(input_=_input(mongodb_container))
