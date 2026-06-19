@@ -5,7 +5,7 @@ networks:
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15.18-alpine@sha256:cd17e2ac98240fce1541ad2a803b34009b4eea5aec8a832363cdc7eca62e722e
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-prefect}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prefect}
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   prefect-server:
-    image: prefecthq/prefect:3-latest
+    image: prefecthq/prefect:3.7.5-python3.12@sha256:f7e11177bedd798fe193393ee22d50531ecadae207158e6333a9237bd2891335
     command: prefect server start --host 0.0.0.0
     environment:
       PREFECT_SERVER_DATABASE_CONNECTION_URL: >-
@@ -64,7 +64,7 @@ services:
     restart: on-failure:5
 
   mongo:
-    image: mongo:7
+    image: mongo:7.0.37@sha256:8ecb514b00bdcc0bde67ef4e6c330385377a9dc68e24ee94e28c07c891647348
     container_name: prefect-mongo
     ports:
       - "${MONGO_PORT:-27017}:27017"
